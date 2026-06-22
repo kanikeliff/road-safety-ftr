@@ -1,0 +1,15 @@
+# Pin versions before submission (offline build, no runtime internet).
+# Torch CUDA wheels must match the cu121 base image — without the extra
+# index URL pip silently pulls the CPU wheel and the model either falls
+# back to CPU or breaks (the cu121 wheel ships its own nvidia/* deps)
+
+#--extra-index-url https://download.pytorch.org/whl/cu121
+
+torch
+torchvision
+transformers==4.44.2
+timm==1.0.9
+einops==0.8.0
+opencv-python-headless==4.10.0.84
+pillow==10.4.0
+numpy==1.26.4
