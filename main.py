@@ -23,10 +23,10 @@ def main() -> None:
     out_path = config.OUTPUT_PATH
 
     if not os.path.exists(input_path):
-        print(f"Hata: Girdi videosu bulunamadi -> {input_path}")
+        print(f"Error: input video not found -> {input_path}")
         sys.exit(1)
 
-    print("Yol Guvenligi Yapay Zeka Cikarim Islemi Baslatildi...")
+    print("Road Safety AI inference started...")
     try:
         results = run_inference(
             video_path=input_path,
@@ -36,13 +36,13 @@ def main() -> None:
             video_id=os.path.basename(input_path),
         )
     except Exception as e:                     # never crash the container
-        print(f"Model calistirilirken bir hata olustu: {e}")
+        print(f"Error while running the model: {e}")
         sys.exit(1)
 
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
-    print(f"Islem tamamlandi. Cikti kaydedildi: {out_path}")
+    print(f"Done. Results written to: {out_path}")
 
 
 if __name__ == "__main__":

@@ -13,15 +13,21 @@ translated into competition labels. Keep all renaming here.
 
 from __future__ import annotations
 
+import os
+
 # --------------------------------------------------------------------------
-# 1. Competition paths (fixed by the spec). Do not change these.
+# 1. Competition paths (fixed by the spec). Do not change these defaults.
+#    For local runs, override them with environment variables instead of
+#    editing this file, e.g.
+#      RS_INPUT_PATH=video.mp4 RS_OUTPUT_PATH=data/output/results.json \
+#      RS_WEIGHTS_PATH=weights/ python3 main.py
 # --------------------------------------------------------------------------
-INPUT_PATH = "/app/data/input/video.mp4"
-OUTPUT_PATH = "/app/data/output/results.json"
+INPUT_PATH = os.environ.get("RS_INPUT_PATH", "/app/data/input/video.mp4")
+OUTPUT_PATH = os.environ.get("RS_OUTPUT_PATH", "/app/data/output/results.json")
 # VLM is loaded via `from_pretrained`, which expects a DIRECTORY
 # containing config.json + safetensors + processor files — not a single
 # checkpoint file. Keep this as a directory path.
-WEIGHTS_PATH = "/app/weights/"
+WEIGHTS_PATH = os.environ.get("RS_WEIGHTS_PATH", "/app/weights/")
 
 # --------------------------------------------------------------------------
 # 2. Frame sampling.

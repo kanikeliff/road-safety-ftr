@@ -22,11 +22,13 @@ from __future__ import annotations
 import os
 import re
 from typing import List, Tuple
+from unittest import mock
 
 import cv2
 import torch
 from PIL import Image
 from transformers import AutoModelForCausalLM, AutoProcessor
+from transformers import dynamic_module_utils
 
 from .perception import Box, Detection, PerceptionFrame
 
@@ -50,6 +52,24 @@ def normalize_plate(raw: str) -> str:
         return PLATE_UNREADABLE
     compact = re.sub(r"\s+", "", raw).upper()
     return compact if PLATE_RE.match(compact) else PLATE_UNREADABLE
+
+
+def _imports_without_flash_attn(get_imports):
+    """Wrap transformers' `get_imports` so Florence's remote code doesn't
+    demand `flash_attn`.
+
+    modeling_florence2.py imports flash_attn only behind an
+    `is_flash_attn_2_available()` guard, but transformers' static import
+    check still lists it as required and refuses to load when the package
+    is missing. The model is loaded with eager attention, so it's unused.
+    """
+    def _filtered(filename):
+        imports = get_imports(filename)
+        if str(filename).endswith("modeling_florence2.py"):
+            imports = [imp for imp in imports if imp != "flash_attn"]
+        return imports
+
+    return _filtered
 
 
 # --------------------------------------------------------------------------
@@ -92,16 +112,29 @@ class VLM:
         # On CPU, keep fp32 because half precision is not reliably supported.
         self.dtype = torch.float16 if self.device == "cuda" else torch.float32
 
+        # Slow BartTokenizer needs merges.txt; fall back to the fast tokenizer
+        # (tokenizer.json) when the saved checkpoint doesn't include it.
+        use_fast = not os.path.isfile(os.path.join(self.model_dir, "merges.txt"))
         self.processor = AutoProcessor.from_pretrained(
             self.model_dir,
             trust_remote_code=True,
+            use_fast=use_fast,
+            local_files_only=True,
         )
 
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_dir,
-            trust_remote_code=True,
-            torch_dtype=self.dtype,
-        ).to(self.device)
+        # attn_implementation="eager": standard attention, so flash_attn is
+        # never needed (it isn't available on macOS/CPU).
+        with mock.patch.object(
+            dynamic_module_utils, "get_imports",
+            _imports_without_flash_attn(dynamic_module_utils.get_imports),
+        ):
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_dir,
+                trust_remote_code=True,
+                torch_dtype=self.dtype,
+                local_files_only=True,
+                attn_implementation="eager",
+            ).to(self.device)
 
         self.model.eval()
 
